@@ -3,12 +3,21 @@ package school.sptech;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Properties;
 
 public class ConexaoComBanco {
     private final String url;
     private final String user;
     private final String password;
+
+    static {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Driver MySQL não encontrado", e);
+        }
+    }
 
     public ConexaoComBanco() {
         try (InputStream is = ConexaoComBanco.class.getClassLoader().getResourceAsStream("application.properties")) {
@@ -18,11 +27,11 @@ public class ConexaoComBanco {
             user = p.getProperty("db.user");
             password = p.getProperty("db.password");
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Erro ao carregar configurações do banco", e);
         }
     }
 
-    public Connection getConnection() throws Exception {
+    public Connection getConnection() throws SQLException {
         return DriverManager.getConnection(url, user, password);
     }
 }

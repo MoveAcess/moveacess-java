@@ -9,7 +9,6 @@ import java.util.concurrent.ThreadLocalRandom;
 public class Log {
     private final ConexaoComBanco dbConfig;
     private int quantidadeErros = 0;
-    private LocalDateTime horaInicio;
 
     public Log(ConexaoComBanco dbConfig) {
         this.dbConfig = dbConfig;
@@ -17,7 +16,7 @@ public class Log {
 
     public void generateLog(String[] processes) {
         DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-        horaInicio = LocalDateTime.now();
+        LocalDateTime horaInicio = LocalDateTime.now();
 
         System.out.printf("[%s] Iniciando processo de importação...%n", horaInicio.format(dateFormat));
 
@@ -25,16 +24,12 @@ public class Log {
 
         try {
             for (String process : processes) {
-                LocalDateTime inicioProcesso = LocalDateTime.now();
-
                 try {
-                    // Simular processamento
                     int delay = ThreadLocalRandom.current().nextInt(500, 2000);
                     Thread.sleep(delay);
 
                     LocalDateTime fimProcesso = LocalDateTime.now();
-                    System.out.printf("[%s] Processo '%s' concluído.%n",
-                            fimProcesso.format(dateFormat), process);
+                    System.out.printf("[%s] Processo '%s' concluído.%n", fimProcesso.format(dateFormat), process);
 
                 } catch (InterruptedException e) {
                     System.err.printf("[%s] Interrupção no processo '%s'%n",
@@ -51,7 +46,6 @@ public class Log {
                 }
             }
         } finally {
-            // Registrar fim do processo principal
             LocalDateTime horaFim = LocalDateTime.now();
 
             try {
