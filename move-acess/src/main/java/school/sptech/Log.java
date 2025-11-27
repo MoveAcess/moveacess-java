@@ -73,10 +73,10 @@ public class Log {
             ps.setInt(3, qtdErros);
 
             ps.executeUpdate();
-            System.out.println("📝 Log registrado na tabela registro_logs");
+            System.out.println("Log registrado na tabela registro_logs");
 
         } catch (Exception e) {
-            System.err.println("❌ Erro ao registrar log: " + e.getMessage());
+            System.err.println("Erro ao registrar log: " + e.getMessage());
             throw new RuntimeException("Falha ao registrar log", e);
         }
     }

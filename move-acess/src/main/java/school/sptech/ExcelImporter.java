@@ -99,11 +99,11 @@ public class ExcelImporter {
                         if (countLocalEmbarque % 50 == 0) {
                             psLocalEmbarque.executeBatch();
                             psVeiculo.executeBatch();
-                            System.out.printf("⏳ Processados %d registros...%n", countLocalEmbarque);
+                            System.out.printf("Processados %d registros...%n", countLocalEmbarque);
                         }
 
                     } catch (Exception e) {
-                        System.err.println("❌ Erro ao processar linha " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                        System.err.println("Erro ao processar linha " + (row.getRowNum() + 1) + ": " + e.getMessage());
                     }
                 }
 
@@ -112,8 +112,8 @@ public class ExcelImporter {
                 psVeiculo.executeBatch();
 
                 System.out.println("✅ Importação finalizada com sucesso!");
-                System.out.println("🏢 Locais de embarque inseridos: " + countLocalEmbarque);
-                System.out.println("🚊 Veículos (linhas) inseridos: " + countVeiculo);
+                System.out.println("Locais de embarque inseridos: " + countLocalEmbarque);
+                System.out.println("Veículos (linhas) inseridos: " + countVeiculo);
 
             }
 
