@@ -41,7 +41,7 @@ public class ExcelImporter {
             if (rows.hasNext()) rows.next();
 
             // SQL para inserir nas tabelas
-            String sqlLocalEmbarque = "INSERT INTO localEmbarque (nome, municipio, linha_frota, endereco, ano) VALUES (?, ?, ?, ?, ?)";
+            String sqlLocalEmbarque = "INSERT INTO localEmbarque (nome, municipio, linha_frota, tipo, ano) VALUES (?, ?, ?, ?, ?)";
             String sqlVeiculo = "INSERT INTO veiculo (tipoTransporte, tipoVeiculo, statusAcessibilidade, ano) VALUES (?, ?, ?, ?)";
 
             try (PreparedStatement psLocalEmbarque = conn.prepareStatement(sqlLocalEmbarque);
