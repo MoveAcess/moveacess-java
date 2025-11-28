@@ -19,6 +19,7 @@ public class Log {
         LocalDateTime horaInicio = LocalDateTime.now();
 
         System.out.printf("[%s] Iniciando processo de importação...%n", horaInicio.format(dateFormat));
+        SlackNotifier.enviarMensagem("[%s] Iniciando processo de importação...%n" + horaInicio.format(dateFormat));
 
         boolean sucessoGeral = true;
 
@@ -30,10 +31,13 @@ public class Log {
 
                     LocalDateTime fimProcesso = LocalDateTime.now();
                     System.out.printf("[%s] Processo '%s' concluído.%n", fimProcesso.format(dateFormat), process);
+                    SlackNotifier.enviarMensagem("[%s] Processo '%s' concluído.%n" + fimProcesso.format(dateFormat) + process);
 
                 } catch (InterruptedException e) {
                     System.err.printf("[%s] Interrupção no processo '%s'%n",
                             LocalDateTime.now().format(dateFormat), process);
+                    SlackNotifier.enviarMensagem("[%s] Interrupção no processo '%s'%n" +
+                            LocalDateTime.now().format(dateFormat) + process);
                     quantidadeErros++;
                     sucessoGeral = false;
                     Thread.currentThread().interrupt();
@@ -41,6 +45,8 @@ public class Log {
                 } catch (Exception e) {
                     System.err.printf("[%s] Erro no processo '%s': %s%n",
                             LocalDateTime.now().format(dateFormat), process, e.getMessage());
+                    SlackNotifier.enviarMensagem("[%s] Erro no processo '%s': %s%n" +
+                            LocalDateTime.now().format(dateFormat) + process + e.getMessage());
                     quantidadeErros++;
                     sucessoGeral = false;
                 }
@@ -51,12 +57,14 @@ public class Log {
             try {
                 registrarLog(horaInicio, horaFim, quantidadeErros);
             } catch (Exception e) {
+                SlackNotifier.enviarMensagem("Erro ao registrar log final: " + e.getMessage());
                 System.err.println("Erro ao registrar log final: " + e.getMessage());
             }
 
             String mensagemFinal = sucessoGeral ?
                     "Importação concluída com sucesso!" :
                     String.format("Importação concluída com %d erro(s)", quantidadeErros);
+            SlackNotifier.enviarMensagem("[%s] %s%n" + horaFim.format(dateFormat) + mensagemFinal);
 
             System.out.printf("[%s] %s%n", horaFim.format(dateFormat), mensagemFinal);
         }
@@ -74,8 +82,10 @@ public class Log {
 
             ps.executeUpdate();
             System.out.println("Log registrado na tabela registro_logs");
+            SlackNotifier.enviarMensagem("Log registrado na tabela registro_logs");
 
         } catch (Exception e) {
+            SlackNotifier.enviarMensagem("Erro ao registrar log: " + e.getMessage());
             System.err.println("Erro ao registrar log: " + e.getMessage());
             throw new RuntimeException("Falha ao registrar log", e);
         }

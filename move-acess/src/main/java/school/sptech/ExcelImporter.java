@@ -31,6 +31,10 @@ public class ExcelImporter {
                 "INSERT_BATCH"
         };
         logger.generateLog(processos);
+        SlackNotifier.enviarMensagem("CONEXAO_BANCO\",\n" +
+                "                \"STREAM_S3_LEITURA\",\n" +
+                "                \"PROCESSAMENTO_LINHAS\",\n" +
+                "                \"INSERT_BATCH");
 
         // Abre o Excel direto da memória (Stream)
         try (Workbook workbook = new XSSFWorkbook(inputStream);
@@ -100,6 +104,7 @@ public class ExcelImporter {
                             psLocal.executeBatch();
                             psVeiculo.executeBatch();
                             System.out.printf("...processados %d registros.%n", countLocal);
+                            SlackNotifier.enviarMensagem("...processados %d registros.%n");
                         }
 
                     } catch (Exception e) {
@@ -115,13 +120,15 @@ public class ExcelImporter {
                 System.out.println("✅ IMPORTAÇÃO CONCLUÍDA!");
                 System.out.println("Locais inseridos: " + countLocal);
                 System.out.println("Veículos inseridos: " + countVeiculo);
+                SlackNotifier.enviarMensagem("✅ IMPORTAÇÃO CONCLUÍDA!");
+                SlackNotifier.enviarMensagem("Locais inseridos: " + countLocal);
+                SlackNotifier.enviarMensagem("Veículos inseridos: " + countVeiculo);
             }
         }
     }
 
     // --- Métodos Auxiliares ---
 
-    // MÉTODO MODIFICADO PARA RETORNAR O ANO COMO INTEGER
     private Integer parseAno(String anoStr) {
         try {
             if (anoStr == null || anoStr.isBlank()) {
@@ -135,9 +142,11 @@ public class ExcelImporter {
             // Se o parsing falhar (ex: a célula contém texto), retorna o ano atual como fallback
             // Para ser ainda mais rigoroso, poderia retornar 'null' e ignorar a linha.
             System.err.println("WARN: Valor de 'ano' não é um número válido: " + anoStr + ". Usando ano atual como fallback.");
+            SlackNotifier.enviarMensagem("WARN: Valor de 'ano' não é um número válido: " + anoStr + ". Usando ano atual como fallback.");
             return LocalDate.now().getYear();
         } catch (Exception e) {
             System.err.println("ERRO INESPERADO no parseAno: " + e.getMessage());
+            SlackNotifier.enviarMensagem("ERRO INESPERADO no parseAno: " + e.getMessage());
             return LocalDate.now().getYear();
         }
     }

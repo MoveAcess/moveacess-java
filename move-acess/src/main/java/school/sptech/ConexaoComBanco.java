@@ -14,6 +14,7 @@ public class ConexaoComBanco {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
+            SlackNotifier.enviarMensagem("Driver MySQL não encontrado");
             throw new RuntimeException("Driver MySQL não encontrado", e);
         }
     }
@@ -27,6 +28,7 @@ public class ConexaoComBanco {
 
         // 2. Validação simples para evitar erro de conexão nulo
         if (this.user == null || this.password == null) {
+            SlackNotifier.enviarMensagem("Variáveis de ambiente de banco (MYSQL_USER, MYSQL_PASSWORD) não definidas!");
             throw new RuntimeException("Variáveis de ambiente de banco (MYSQL_USER, MYSQL_PASSWORD) não definidas!");
         }
 
@@ -40,6 +42,7 @@ public class ConexaoComBanco {
         this.url = String.format("jdbc:mysql://%s:3306/%s?useSSL=false&allowPublicKeyRetrieval=true", dbHost, dbName);
 
         System.out.println("Configuração de Banco: Host=" + dbHost + ", Database=" + dbName + ", User=" + user);
+        SlackNotifier.enviarMensagem("Configuração de Banco: Host=" + dbHost + ", Database=" + dbName + ", User=" + user);
     }
 
     public Connection getConnection() throws SQLException {

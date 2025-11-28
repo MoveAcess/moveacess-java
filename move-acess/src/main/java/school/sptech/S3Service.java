@@ -21,6 +21,7 @@ public class S3Service {
 
     public InputStream getFileAsInputStream(String bucket_name, String file_key) {
         System.out.printf("Iniciando download do arquivo '%s' do bucket '%s'...%n", file_key, bucket_name);
+        SlackNotifier.enviarMensagem("Iniciando download do arquivo '%s' do bucket '%s'...%n" + file_key + bucket_name);
         try {
             GetObjectRequest get_object_request = GetObjectRequest.builder()
                     .bucket(bucket_name)
@@ -28,6 +29,7 @@ public class S3Service {
                     .build();
             return s3_client.getObject(get_object_request);
         } catch (S3Exception e) {
+            SlackNotifier.enviarMensagem("Falha ao buscar arquivo no S3." + e);
             System.err.println("Erro ao buscar arquivo no S3: " + e.awsErrorDetails().errorMessage());
             throw new RuntimeException("Falha ao buscar arquivo no S3.", e);
         }
@@ -35,6 +37,7 @@ public class S3Service {
 
     public Optional<String> getLatestFileKey(String bucket_name, String suffix) {
         System.out.println("Procurando o arquivo mais recente no bucket: " + bucket_name);
+        SlackNotifier.enviarMensagem("Procurando o arquivo mais recente no bucket: " + bucket_name);
         try {
             ListObjectsV2Request list_req = ListObjectsV2Request.builder()
                     .bucket(bucket_name)
@@ -61,6 +64,7 @@ public class S3Service {
             return latest_object.map(S3Object::key);
 
         } catch (S3Exception e) {
+            SlackNotifier.enviarMensagem("Falha ao listar arquivos no S3.");
             System.err.println("Erro ao listar arquivos no S3: " + e.awsErrorDetails().errorMessage());
             throw new RuntimeException("Falha ao listar arquivos no S3.", e);
         }
