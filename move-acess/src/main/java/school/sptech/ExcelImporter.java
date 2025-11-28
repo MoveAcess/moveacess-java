@@ -31,10 +31,6 @@ public class ExcelImporter {
                 "INSERT_BATCH"
         };
         logger.generateLog(processos);
-        SlackNotifier.enviarMensagem("CONEXAO_BANCO\",\n" +
-                "                \"STREAM_S3_LEITURA\",\n" +
-                "                \"PROCESSAMENTO_LINHAS\",\n" +
-                "                \"INSERT_BATCH");
 
         // Abre o Excel direto da memória (Stream)
         try (Workbook workbook = new XSSFWorkbook(inputStream);
