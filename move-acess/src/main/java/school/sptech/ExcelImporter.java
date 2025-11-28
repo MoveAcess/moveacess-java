@@ -3,7 +3,7 @@ package school.sptech;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
@@ -20,18 +20,20 @@ public class ExcelImporter {
         this.logger = logger;
     }
 
-    public void importFile(String filePath) throws Exception {
-        String[] processos = {
-                "CONEXAO_BANCO_DADOS",
-                "LEITURA_ARQUIVO_EXCEL",
-                "PROCESSAMENTO_DADOS_LOCAL_EMBARQUE",
-                "INSERCAO_DADOS_BANCO"
-        };
+    // Método principal alterado para receber InputStream
+    public void processarStream(InputStream inputStream) throws Exception {
 
+        // Logs de monitoramento
+        String[] processos = {
+                "CONEXAO_BANCO",
+                "STREAM_S3_LEITURA",
+                "PROCESSAMENTO_LINHAS",
+                "INSERT_BATCH"
+        };
         logger.generateLog(processos);
 
-        try (FileInputStream fis = new FileInputStream(filePath);
-             Workbook workbook = new XSSFWorkbook(fis);
+        // Abre o Excel direto da memória (Stream)
+        try (Workbook workbook = new XSSFWorkbook(inputStream);
              Connection conn = dbConfig.getConnection()) {
 
             Sheet sheet = workbook.getSheetAt(0);
@@ -40,14 +42,14 @@ public class ExcelImporter {
             // Pular cabeçalho
             if (rows.hasNext()) rows.next();
 
-            // SQL para inserir nas tabelas
-            String sqlLocalEmbarque = "INSERT INTO localEmbarque (nome, municipio, linha_frota, tipo, ano) VALUES (?, ?, ?, ?, ?)";
+            // Os SQLs permanecem os mesmos, mas as colunas 'ano' serão preenchidas com INT
+            String sqlLocal = "INSERT INTO localEmbarque (nome, municipio, linha_frota, tipo, ano) VALUES (?, ?, ?, ?, ?)";
             String sqlVeiculo = "INSERT INTO veiculo (tipoTransporte, tipoVeiculo, statusAcessibilidade, ano) VALUES (?, ?, ?, ?)";
 
-            try (PreparedStatement psLocalEmbarque = conn.prepareStatement(sqlLocalEmbarque);
+            try (PreparedStatement psLocal = conn.prepareStatement(sqlLocal);
                  PreparedStatement psVeiculo = conn.prepareStatement(sqlVeiculo)) {
 
-                int countLocalEmbarque = 0;
+                int countLocal = 0;
                 int countVeiculo = 0;
                 Set<String> linhasProcessadas = new HashSet<>();
 
@@ -55,120 +57,103 @@ public class ExcelImporter {
                     Row row = rows.next();
 
                     try {
-                        // Ler dados do Excel
-                        String estacao = getCellString(row.getCell(0)); // Coluna A: Estação
-                        String linha = getCellString(row.getCell(1));   // Coluna B: Linha
-                        String equipamentos = getCellString(row.getCell(2)); // Coluna C: Equipamentos
-                        String nivelAcessibilidade = getCellString(row.getCell(3)); // Coluna D: Nível de Acessibilidade
-                        String anoStr = getCellString(row.getCell(4)); // Coluna E: Ano
+                        String estacao = getCellString(row.getCell(0));
+                        String linha = getCellString(row.getCell(1));
+                        String equipamentos = getCellString(row.getCell(2));
+                        String nivelAcessibilidade = getCellString(row.getCell(3));
+                        String anoStr = getCellString(row.getCell(4));
 
-                        // Pular linhas vazias
-                        if (estacao == null || estacao.isBlank()) {
-                            continue;
-                        }
+                        // Chamamos o método parseAno que agora retorna um Integer
+                        Integer ano = parseAno(anoStr);
 
-                        // Inserir na tabela localEmbarque (ESTAÇÕES)
-                        psLocalEmbarque.setString(1, estacao); // nome
-                        psLocalEmbarque.setString(2, "São Paulo"); // municipio (assumindo SP)
-                        psLocalEmbarque.setString(3, linha); // linha_frota
-                        psLocalEmbarque.setString(4, equipamentos); // endereco (equipamentos disponíveis)
-                        psLocalEmbarque.setDate(5, parseAno(anoStr)); // ano
-                        psLocalEmbarque.addBatch();
-                        countLocalEmbarque++;
+                        if (estacao == null || estacao.isBlank() || ano == null) continue;
 
-                        // Processar linhas únicas para a tabela veiculo
+                        // 1. Inserir Local Embarque
+                        psLocal.setString(1, estacao);
+                        psLocal.setString(2, "São Paulo");
+                        psLocal.setString(3, linha);
+                        psLocal.setString(4, equipamentos);
+                        psLocal.setInt(5, ano); // USANDO setInt() para coluna YEAR
+                        psLocal.addBatch();
+                        countLocal++;
+
+                        // 2. Inserir Veículo (evitando duplicados na mesma execução)
                         if (linha != null && !linha.isBlank() && !linhasProcessadas.contains(linha)) {
+                            // Se houver várias linhas separadas por pipe "|"
                             String[] linhasArray = linha.split("\\|");
-                            for (String linhaIndividual : linhasArray) {
-                                String linhaLimpa = linhaIndividual.trim();
-                                if (!linhaLimpa.isEmpty() && !linhasProcessadas.contains(linhaLimpa)) {
-                                    // Inserir na tabela veiculo (LINHAS DE TRANSPORTE)
-                                    psVeiculo.setString(1, "Trem/Metrô"); // tipoTransporte
-                                    psVeiculo.setString(2, "Linha " + linhaLimpa); // tipoVeiculo
-                                    psVeiculo.setString(3, nivelAcessibilidade); // statusAcessibilidade
-                                    psVeiculo.setDate(4, parseAno(anoStr)); // ano
+                            for (String l : linhasArray) {
+                                String lClean = l.trim();
+                                if (!lClean.isEmpty() && !linhasProcessadas.contains(lClean)) {
+                                    psVeiculo.setString(1, "Trem/Metrô");
+                                    psVeiculo.setString(2, "Linha " + lClean);
+                                    psVeiculo.setString(3, nivelAcessibilidade);
+                                    psVeiculo.setInt(4, ano); // USANDO setInt() para coluna YEAR
                                     psVeiculo.addBatch();
                                     countVeiculo++;
-
-                                    linhasProcessadas.add(linhaLimpa);
+                                    linhasProcessadas.add(lClean);
                                 }
                             }
                         }
 
-                        // Executar batch a cada 50 registros
-                        if (countLocalEmbarque % 50 == 0) {
-                            psLocalEmbarque.executeBatch();
+                        // Executa o lote a cada 50 registros para não sobrecarregar a memória
+                        if (countLocal % 50 == 0) {
+                            psLocal.executeBatch();
                             psVeiculo.executeBatch();
-                            System.out.printf("Processados %d registros...%n", countLocalEmbarque);
+                            System.out.printf("...processados %d registros.%n", countLocal);
                         }
 
                     } catch (Exception e) {
-                        System.err.println("Erro ao processar linha " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                        System.err.println("Erro linha " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                        // CONTINUA O LOOP para tentar a próxima linha
                     }
                 }
 
-                // Executar batches restantes
-                psLocalEmbarque.executeBatch();
+                // Executa o restante
+                psLocal.executeBatch();
                 psVeiculo.executeBatch();
 
-                System.out.println("✅ Importação finalizada com sucesso!");
-                System.out.println("Locais de embarque inseridos: " + countLocalEmbarque);
-                System.out.println("Veículos (linhas) inseridos: " + countVeiculo);
-
+                System.out.println("✅ IMPORTAÇÃO CONCLUÍDA!");
+                System.out.println("Locais inseridos: " + countLocal);
+                System.out.println("Veículos inseridos: " + countVeiculo);
             }
-
-        } catch (Exception e) {
-            System.err.println("❌ Erro durante a importação: " + e.getMessage());
-            throw e;
         }
     }
 
-    private java.sql.Date parseAno(String anoStr) {
+    // --- Métodos Auxiliares ---
+
+    // MÉTODO MODIFICADO PARA RETORNAR O ANO COMO INTEGER
+    private Integer parseAno(String anoStr) {
         try {
             if (anoStr == null || anoStr.isBlank()) {
-                return new java.sql.Date(System.currentTimeMillis());
+                // Se for nulo/vazio, retorna o ano atual
+                return LocalDate.now().getYear();
             }
 
-            // Converter string do ano para Date (primeiro dia do ano)
-            int ano = (int) Double.parseDouble(anoStr); // Para tratar números do Excel
-            LocalDate data = LocalDate.of(ano, 1, 1);
-            return java.sql.Date.valueOf(data);
-
+            // Tenta obter o ano como inteiro a partir da string
+            return (int) Double.parseDouble(anoStr.trim());
+        } catch (NumberFormatException e) {
+            // Se o parsing falhar (ex: a célula contém texto), retorna o ano atual como fallback
+            // Para ser ainda mais rigoroso, poderia retornar 'null' e ignorar a linha.
+            System.err.println("WARN: Valor de 'ano' não é um número válido: " + anoStr + ". Usando ano atual como fallback.");
+            return LocalDate.now().getYear();
         } catch (Exception e) {
-            System.err.println("Erro ao converter ano: " + anoStr + ", usando ano atual");
-            return new java.sql.Date(System.currentTimeMillis());
+            System.err.println("ERRO INESPERADO no parseAno: " + e.getMessage());
+            return LocalDate.now().getYear();
         }
     }
 
     private String getCellString(Cell cell) {
         if (cell == null) return null;
-
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue().trim();
-            case NUMERIC -> {
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    yield cell.getDateCellValue().toString();
-                } else {
-                    // Para números, converter para inteiro se for número redondo
-                    double value = cell.getNumericCellValue();
-                    if (value == Math.floor(value)) {
-                        yield String.valueOf((int) value);
-                    } else {
-                        yield String.valueOf(value);
-                    }
-                }
-            }
+            case NUMERIC -> DateUtil.isCellDateFormatted(cell) ?
+                    // Se for data formatada, retorna apenas o ano da data (que ainda será uma string, mas passível de parse)
+                    String.valueOf(LocalDate.ofInstant(cell.getDateCellValue().toInstant(), java.time.ZoneId.systemDefault()).getYear()) :
+                    String.valueOf((int) cell.getNumericCellValue()); // Força inteiro se for número
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
             case FORMULA -> {
-                try {
-                    yield cell.getStringCellValue();
-                } catch (Exception e) {
-                    try {
-                        yield String.valueOf((int) cell.getNumericCellValue());
-                    } catch (Exception e2) {
-                        yield String.valueOf(cell.getNumericCellValue());
-                    }
-                }
+                try { yield cell.getStringCellValue(); }
+                catch (Exception e) { yield String.valueOf(cell.getNumericCellValue()); }
             }
             default -> null;
         };
